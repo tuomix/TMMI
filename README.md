@@ -3,6 +3,8 @@
 # 🧩 TMMI
 ### Tuomi's Magisk Module Installer
 
+![Vibe Coded](https://img.shields.io/badge/Vibe%20Coded-⚡-ff69b4)
+
 A Windows desktop tool to browse, install and manage Magisk modules
 on your Android device — over USB or WiFi — through a clean web UI.
 
