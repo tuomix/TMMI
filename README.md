@@ -32,7 +32,7 @@ on your Android device — over USB or WiFi — through a clean web UI.
 
 ### Option A — One command (recommended)
 ```bat
-git clone https://github.com/yourusername/TMMI.git
+git clone https://github.com/tuomix/TMMI.git
 cd TMMI
 run.bat
 ```
