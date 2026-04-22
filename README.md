@@ -6,6 +6,7 @@
 A Windows desktop tool to browse, install and manage Magisk modules
 on your Android device — over USB or WiFi — through a clean web UI.
 
+![Vibe Coded](https://img.shields.io/badge/Vibe%20Coded-⚡-ff69b4)
 ![Python](https://img.shields.io/badge/Python-3.8+-blue?logo=python)
 ![Platform](https://img.shields.io/badge/Platform-Windows-blue?logo=windows)
 ![ADB](https://img.shields.io/badge/Requires-ADB-green)
@@ -19,7 +20,6 @@ on your Android device — over USB or WiFi — through a clean web UI.
 
 | Requirement | Notes |
 |---|---|
-![Vibe Coded](https://img.shields.io/badge/Vibe%20Coded-⚡-ff69b4)
 | Windows 10/11 | Tested on Windows 11 |
 | Python 3.8+ | [Download](https://www.python.org/downloads/) |
 | ADB | [Platform Tools](https://developer.android.com/tools/releases/platform-tools) |
