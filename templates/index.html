@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TMMI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0a0a0a;
+      --surface:    #111111;
+      --surface-2:  #181818;
+      --surface-3:  #202020;
+      --border:     rgba(255,255,255,0.07);
+      --accent:     #00af9b;
+      --accent-dim: rgba(0,175,155,0.12);
+      --accent-glow:rgba(0,175,155,0.25);
+      --red:        #f44336;
+      --orange:     #ff9800;
+      --green:      #4caf50;
+      --blue:       #2196f3;
+      --text:       #e0e0e0;
+      --text-muted: #777;
+      --text-dim:   #444;
+      --radius:     10px;
+    }
+
+    html, body { height: 100%; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 99px; }
+
+    /* ── App Shell ── */
+    .app {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      height: 100vh;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 0 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .header-logo {
+      width: 36px; height: 36px;
+      background: var(--accent);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; color: #fff;
+      flex-shrink: 0;
+    }
+    .header-title { font-size: 16px; font-weight: 700; letter-spacing: -0.3px; }
+    .header-sub   { font-size: 12px; color: var(--text-muted); }
+    .header-status {
+      margin-left: auto;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      transition: background 0.3s;
+    }
+    .status-dot.connected  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .status-dot.connecting { background: var(--orange); }
+    .status-dot.error      { background: var(--red); }
+    .status-text { font-size: 12px; color: var(--text-muted); }
+
+    /* ── Device Bar ── */
+    .device-bar {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .device-name {
+      font-size: 13px;
+      font-weight: 600;
+      margin-right: 20px;
+      display: flex; align-items: center; gap: 8px;
+      color: var(--text);
+    }
+    .device-name i { color: var(--accent); font-size: 15px; }
+    .device-stats {
+      display: flex;
+      gap: 4px;
+      flex: 1;
+    }
+    .dstat {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      font-size: 12px;
+    }
+    .dstat i { color: var(--accent); font-size: 11px; }
+    .dstat-label { color: var(--text-muted); margin-right: 3px; }
+    .dstat-value { font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+    .dstat.low-battery .dstat-value { color: var(--red); }
+    .device-retry {
+      margin-left: auto;
+      padding: 5px 12px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text-muted);
+      font-size: 12px;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 6px;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .device-retry:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Main Grid ── */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 340px 1fr;
+      gap: 12px;
+      padding: 12px 0 16px;
+      min-height: 0;
+    }
+
+    /* ── Panel ── */
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+    .panel-header {
+      padding: 12px 14px 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 8px;
+      flex-shrink: 0;
+    }
+    .panel-header i { color: var(--accent); font-size: 13px; }
+    .panel-title { font-size: 13px; font-weight: 600; }
+    .panel-body {
+      padding: 12px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* ── Left Panel: Upload ── */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 28px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .upload-zone:hover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .upload-zone i { font-size: 28px; color: var(--accent); margin-bottom: 8px; display: block; }
+    .upload-zone p { font-size: 13px; font-weight: 500; }
+    .upload-zone small { font-size: 11px; color: var(--text-muted); }
+    #selectedFileName { font-size: 12px; color: var(--text-muted); text-align: center; }
+
+    /* Search inside left panel */
+    .search-wrap {
+      position: relative;
+    }
+    .search-wrap i {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted); font-size: 12px; pointer-events: none;
+    }
+    .search-wrap input {
+      width: 100%;
+      padding: 8px 10px 8px 30px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text);
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .search-wrap input:focus { border-color: var(--accent); }
+    .search-wrap input::placeholder { color: var(--text-dim); }
+
+    /* Search results inside left panel */
+    .search-results {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* ── Right Panel: Modules + Actions ── */
+    .right-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 0;
+    }
+
+    /* Action strip */
+    .action-strip {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .action-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 14px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+    }
+    .action-btn:hover { background: var(--surface-2); border-color: var(--border-hover, rgba(255,255,255,0.14)); }
+    .action-btn.accent { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+    .action-btn.accent:hover { background: rgba(0,175,155,0.2); }
+    .action-btn.danger { background: rgba(244,67,54,0.1); border-color: var(--red); color: var(--red); }
+    .action-btn.danger:hover { background: rgba(244,67,54,0.18); }
+
+    /* Modules list */
+    .modules-panel {
+      flex: 1;
+      min-height: 0;
+    }
+    .modules-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    /* ── Module Item ── */
+    .mod-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      transition: border-color 0.2s;
+    }
+    .mod-item:hover { border-color: rgba(255,255,255,0.12); }
+    .mod-item.disabled { opacity: 0.55; }
+    .mod-item.removing { border-left: 2px solid var(--red); }
+
+    .mod-icon { font-size: 15px; flex-shrink: 0; width: 20px; text-align: center; }
+    .mod-info { flex: 1; min-width: 0; }
+    .mod-name {
+      font-size: 13px; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .mod-meta {
+      font-size: 11px; color: var(--text-muted); margin-top: 1px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .mod-desc {
+      font-size: 11px; color: var(--text-dim); margin-top: 2px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .mod-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    .btn-sm {
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface-3);
+      color: var(--text);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex; align-items: center; gap: 4px;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .btn-sm:hover { background: var(--surface); }
+    .btn-sm.enable  { border-color: var(--green);  color: var(--green);  background: rgba(76,175,80,0.08); }
+    .btn-sm.disable { border-color: var(--text-dim); color: var(--text-muted); }
+    .btn-sm.remove  { border-color: var(--red); color: var(--red); background: rgba(244,67,54,0.08); }
+    .btn-sm.install { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+    .btn-sm.install:hover { background: rgba(0,175,155,0.2); }
+
+    .pending-tag { font-size: 11px; color: var(--red); white-space: nowrap; }
+
+    /* ── Empty State ── */
+    .empty {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 32px 16px; gap: 8px; color: var(--text-dim);
+      text-align: center;
+    }
+    .empty i { font-size: 28px; opacity: 0.4; }
+    .empty p { font-size: 13px; }
+
+    /* ── Install Log Panel (bottom of left) ── */
+    .log-wrap {
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .log-wrap.visible { display: flex; }
+    .install-log {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 10px 12px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      max-height: 140px;
+      overflow-y: auto;
+      line-height: 1.7;
+      color: #666;
+    }
+    .progress-track {
+      height: 4px; background: var(--surface-3); border-radius: 4px; overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%; width: 0%;
+      background: var(--accent);
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+    .progress-label {
+      display: flex; justify-content: space-between;
+      font-size: 11px; color: var(--text-muted);
+    }
+
+    /* ── Toast ── */
+    #toastContainer {
+      position: fixed; bottom: 20px; right: 20px;
+      display: flex; flex-direction: column; gap: 8px;
+      z-index: 9999;
+    }
+    .toast {
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      background: var(--surface-3);
+      border: 1px solid var(--border);
+      color: var(--text);
+      opacity: 0; transform: translateY(6px);
+      transition: opacity 0.2s, transform 0.2s;
+      max-width: 300px;
+    }
+    .toast.show { opacity: 1; transform: translateY(0); }
+    .toast.success { border-color: var(--green);  background: rgba(76,175,80,0.12); }
+    .toast.error   { border-color: var(--red);    background: rgba(244,67,54,0.12); }
+    .toast.info    { border-color: var(--accent);  background: var(--accent-dim); }
+    .toast.warn    { border-color: var(--orange); background: rgba(255,152,0,0.12); }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: var(--accent); color: #fff;
+      border-radius: 99px; font-size: 10px; font-weight: 700;
+      padding: 1px 6px; margin-left: 4px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="toastContainer"></div>
+<input type="file" id="fileInput" accept=".zip" style="display:none;">
+
+<div class="app">
+
+  <!-- ── Header ── -->
+  <header class="header">
+    <div class="header-logo"><i class="fas fa-wand-magic-sparkles"></i></div>
+    <div>
+      <div class="header-title">Tuomi's Magisk Module Installer</div>
+      <div class="header-sub">Wireless module installer</div>
+    </div>
+    <div class="header-status">
+      <div class="status-dot connecting" id="statusDot"></div>
+      <span class="status-text" id="statusText">Connecting...</span>
+    </div>
+  </header>
+
+  <!-- ── Device Bar ── -->
+  <div class="device-bar">
+    <div class="device-name">
+      <i class="fas fa-mobile-alt"></i>
+      <span id="deviceModel">Unknown Device</span>
+    </div>
+    <div class="device-stats">
+      <div class="dstat">
+        <i class="fas fa-microchip"></i>
+        <span class="dstat-label">Android</span>
+        <span class="dstat-value" id="statAndroid">--</span>
+      </div>
+      <div class="dstat">
+        <i class="fas fa-code-branch"></i>
+        <span class="dstat-label">Magisk</span>
+        <span class="dstat-value" id="statMagisk">--</span>
+      </div>
+      <div class="dstat" id="batteryCard">
+        <i class="fas fa-battery-full" id="batteryIcon"></i>
+        <span class="dstat-label">Battery</span>
+        <span class="dstat-value" id="statBattery">--</span>
+      </div>
+      <div class="dstat">
+        <i class="fas fa-database"></i>
+        <span class="dstat-label">Storage</span>
+        <span class="dstat-value" id="statStorage">--</span>
+      </div>
+    </div>
+    <button class="device-retry" id="retryBtn" style="display:none" onclick="connectPhone()">
+      <i class="fas fa-rotate-right"></i> Retry
+    </button>
+  </div>
+
+  <!-- ── Main Grid ── -->
+  <div class="main-grid">
+
+    <!-- LEFT: Upload + Search -->
+    <div class="panel">
+      <div class="panel-header">
+        <i class="fas fa-upload"></i>
+        <span class="panel-title">Install Module</span>
+      </div>
+      <div class="panel-body">
+
+        <!-- Upload zone -->
+        <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+          <i class="fas fa-file-zipper"></i>
+          <p>Click to upload a ZIP</p>
+          <small>Magisk module .zip file</small>
+        </div>
+        <p id="selectedFileName"></p>
+
+        <!-- Install log (hidden until install) -->
+        <div class="log-wrap" id="logWrap">
+          <div class="progress-label">
+            <span id="installStatus">Installing...</span>
+            <span id="progressPercent">0%</span>
+          </div>
+          <div class="progress-track">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="install-log" id="installLog"></div>
+        </div>
+
+        <!-- Divider -->
+        <div style="border-top: 1px solid var(--border); margin: 4px 0;"></div>
+
+        <!-- Search -->
+        <div class="panel-header" style="padding: 0; border: none; margin-bottom: 2px;">
+          <i class="fas fa-search"></i>
+          <span class="panel-title">Search Repository</span>
+        </div>
+        <div class="search-wrap">
+          <i class="fas fa-search"></i>
+          <input type="text" id="searchInput" placeholder="Module name, author, ID...">
+        </div>
+        <div class="search-results" id="searchResults">
+          <div class="empty">
+            <i class="fas fa-magnifying-glass"></i>
+            <p>Type to search modules</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- RIGHT: Installed modules + actions -->
+    <div class="right-panel">
+
+      <!-- Action strip -->
+      <div class="action-strip">
+        <button class="action-btn accent" onclick="refreshInstalled()">
+          <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+        <button class="action-btn danger" onclick="rebootPhone()">
+          <i class="fas fa-power-off"></i> Reboot
+        </button>
+        <span style="margin-left:auto; display:flex; align-items:center; font-size:12px; color:var(--text-muted);">
+          Installed modules <span id="installedBadge" class="badge" style="display:none;"></span>
+        </span>
+      </div>
+
+      <!-- Modules panel -->
+      <div class="panel modules-panel">
+        <div class="panel-header">
+          <i class="fas fa-list"></i>
+          <span class="panel-title">Installed</span>
+        </div>
+        <div class="panel-body">
+          <div class="modules-list" id="installedModules">
+            <div class="empty">
+              <i class="fas fa-spinner fa-spin"></i>
+              <p>Loading modules...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /main-grid -->
+</div><!-- /app -->
+
+<script>
+const socket = io();
+let deviceConnected = false;
+
+// ── Socket ──
+socket.on('connect', () => { connectPhone(); });
+socket.on('install_log',      (d) => appendLog(d.message, d.level));
+socket.on('install_progress', (d) => updateProgress(d.percent, d.status));
+socket.on('install_done', (d) => {
+  if (d.success) {
+    showToast('✅ ' + d.message, 'success');
+    setTimeout(refreshInstalled, 1500);
+  } else {
+    showToast('❌ ' + d.message, 'error');
+  }
+  setTimeout(() => {
+    document.getElementById('logWrap').classList.remove('visible');
+  }, 4000);
+});
+
+// ── Connect ──
+async function connectPhone() {
+  setStatus('connecting', 'Connecting...');
+  document.getElementById('retryBtn').style.display = 'none';
+
+  try {
+    const res  = await fetch('/api/connect', { method: 'POST' });
+    const data = await res.json();
+
+    if (data.success) {
+      deviceConnected = true;
+      displayDeviceInfo(data.info, data.magisk);
+      setStatus('connected', 'Connected');
+      showToast('✅ Device connected', 'success');
+      refreshInstalled();
+    } else {
+      setStatus('error', 'Failed');
+      document.getElementById('deviceModel').textContent = 'No Device';
+      document.getElementById('retryBtn').style.display = '';
+      showToast('❌ ' + data.message, 'error');
+    }
+  } catch (e) {
+    setStatus('error', 'Server error');
+    document.getElementById('retryBtn').style.display = '';
+    showToast('❌ ' + e.message, 'error');
+  }
+}
+
+function setStatus(state, text) {
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot ' + state;
+  document.getElementById('statusText').textContent = text;
+}
+
+function displayDeviceInfo(info, magisk) {
+  document.getElementById('deviceModel').textContent = info.model    || 'Unknown';
+  document.getElementById('statAndroid').textContent = info.android  || '?';
+  document.getElementById('statMagisk').textContent  = magisk        || '?';
+  document.getElementById('statBattery').textContent = info.battery  || '?';
+  document.getElementById('statStorage').textContent = info.storage  || '?';
+
+  const lvl = parseInt((info.battery || '').match(/(\d+)/)?.[1] ?? '100');
+  document.getElementById('batteryCard').classList.toggle('low-battery', lvl < 20);
+  document.getElementById('batteryIcon').className =
+    lvl > 80 ? 'fas fa-battery-full'
+    : lvl > 50 ? 'fas fa-battery-three-quarters'
+    : lvl > 25 ? 'fas fa-battery-half'
+    : lvl > 10 ? 'fas fa-battery-quarter'
+    : 'fas fa-battery-empty';
+}
+
+// ── Search ──
+let searchTimeout;
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  clearTimeout(searchTimeout);
+  const q = e.target.value.trim();
+  const el = document.getElementById('searchResults');
+
+  if (q.length < 2) {
+    el.innerHTML = `<div class="empty"><i class="fas fa-search"></i><p>Type at least 2 characters</p></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="empty"><i class="fas fa-spinner fa-spin"></i><p>Searching...</p></div>`;
+
+  searchTimeout = setTimeout(async () => {
+    try {
+      const res  = await fetch('/api/modules/search?q=' + encodeURIComponent(q));
+      const data = await res.json();
+      if (!data.modules?.length) {
+        el.innerHTML = `<div class="empty"><i class="fas fa-inbox"></i><p>No modules found</p></div>`;
+        return;
+      }
+      el.innerHTML = data.modules.map(m => searchCard(m)).join('');
+    } catch (err) { showToast('❌ ' + err.message, 'error'); }
+  }, 350);
+});
+
+function searchCard(m) {
+  const dl = m.download
+    ? `<button class="btn-sm install" onclick="installModule('${escapeAttr(m.download)}','${escapeAttr(m.name)}','${escapeAttr(m.id)}')">
+         <i class="fas fa-download"></i> Install
+       </button>`
+    : `<span style="font-size:11px;color:var(--text-dim)"><i class="fas fa-ban"></i></span>`;
+  return `<div class="mod-item">
+    <div class="mod-icon"><i class="fas fa-cube" style="color:var(--accent);"></i></div>
+    <div class="mod-info">
+      <div class="mod-name">${escapeHtml(m.name)}</div>
+      <div class="mod-meta"><i class="fas fa-user" style="font-size:10px;"></i> ${escapeHtml(m.author)} &bull; v${escapeHtml(m.version)}</div>
+      ${m.description ? `<div class="mod-desc">${escapeHtml(m.description)}</div>` : ''}
+    </div>
+    <div class="mod-actions">${dl}</div>
+  </div>`;
+}
+
+// ── Installed ──
+async function refreshInstalled() {
+  document.getElementById('installedModules').innerHTML =
+    `<div class="empty"><i class="fas fa-spinner fa-spin"></i><p>Loading...</p></div>`;
+  try {
+    const res  = await fetch('/api/modules/installed');
+    const data = await res.json();
+    if (!data.success) {
+      document.getElementById('installedModules').innerHTML =
+        `<div class="empty"><i class="fas fa-triangle-exclamation" style="color:var(--red)"></i><p>${data.error || 'Failed'}</p></div>`;
+      return;
+    }
+    const mods = data.modules || [];
+    const badge = document.getElementById('installedBadge');
+    badge.textContent = mods.length;
+    badge.style.display = mods.length ? '' : 'none';
+
+    if (!mods.length) {
+      document.getElementById('installedModules').innerHTML =
+        `<div class="empty"><i class="fas fa-inbox"></i><p>No modules installed</p></div>`;
+      return;
+    }
+    document.getElementById('installedModules').innerHTML = mods.map(installedCard).join('');
+  } catch (e) { showToast('❌ ' + e.message, 'error'); }
+}
+
+function installedCard(m) {
+  const icon = m.pending_remove
+    ? `<i class="fas fa-trash-clock" style="color:var(--red)"></i>`
+    : m.enabled
+      ? `<i class="fas fa-circle-check" style="color:var(--green)"></i>`
+      : `<i class="fas fa-circle-pause" style="color:var(--orange)"></i>`;
+
+  const actions = m.pending_remove
+    ? `<span class="pending-tag"><i class="fas fa-clock"></i> On reboot</span>`
+    : `<button class="btn-sm ${m.enabled ? 'disable' : 'enable'}"
+         onclick="toggleModule('${escapeAttr(m.id)}', ${!m.enabled})">
+         <i class="fas fa-${m.enabled ? 'ban' : 'check'}"></i>
+         ${m.enabled ? 'Disable' : 'Enable'}
+       </button>
+       <button class="btn-sm remove" onclick="removeModule('${escapeAttr(m.id)}','${escapeAttr(m.name)}')">
+         <i class="fas fa-trash"></i>
+       </button>`;
+
+  return `<div class="mod-item ${!m.enabled ? 'disabled' : ''} ${m.pending_remove ? 'removing' : ''}">
+    <div class="mod-icon">${icon}</div>
+    <div class="mod-info">
+      <div class="mod-name">${escapeHtml(m.name)}</div>
+      <div class="mod-meta"><i class="fas fa-tag" style="font-size:10px;"></i> ${escapeHtml(m.id)} &bull; ${escapeHtml(m.version)}</div>
+      ${m.description ? `<div class="mod-desc">${escapeHtml(m.description)}</div>` : ''}
+    </div>
+    <div class="mod-actions">${actions}</div>
+  </div>`;
+}
+
+// ── Install ──
+function installModule(url, name, id) {
+  document.getElementById('installLog').innerHTML = '';
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('progressPercent').textContent = '0%';
+  document.getElementById('installStatus').textContent = 'Initializing...';
+  document.getElementById('logWrap').classList.add('visible');
+  socket.emit('install_module', { url, name, id });
+}
+
+// ── Upload ──
+document.getElementById('fileInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  document.getElementById('selectedFileName').textContent = '📦 ' + file.name;
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const res  = await fetch('/api/modules/upload', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById('installLog').innerHTML = '';
+      document.getElementById('progressBar').style.width = '0%';
+      document.getElementById('logWrap').classList.add('visible');
+      showToast('📤 Upload started', 'info');
+    } else {
+      showToast('❌ ' + data.error, 'error');
+    }
+  } catch (err) { showToast('❌ ' + err.message, 'error'); }
+  e.target.value = '';
+});
+
+// ── Actions ──
+async function toggleModule(id, enable) {
+  try {
+    const res  = await fetch('/api/modules/toggle', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, enable }),
+    });
+    const data = await res.json();
+    data.success ? showToast('✅ ' + data.message, 'success') : showToast('❌ ' + data.error, 'error');
+    refreshInstalled();
+  } catch (e) { showToast('❌ ' + e.message, 'error'); }
+}
+
+async function removeModule(id, name) {
+  if (!confirm(`Remove "${name || id}"?\nWill be deleted on next reboot.`)) return;
+  try {
+    const res  = await fetch('/api/modules/remove', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    const data = await res.json();
+    data.success ? showToast('✅ ' + data.message, 'success') : showToast('❌ ' + data.error, 'error');
+    refreshInstalled();
+  } catch (e) { showToast('❌ ' + e.message, 'error'); }
+}
+
+async function rebootPhone() {
+  if (!confirm('Reboot device now?')) return;
+  try {
+    const res  = await fetch('/api/reboot', { method: 'POST' });
+    const data = await res.json();
+    data.success ? showToast('⚠️ Rebooting...', 'warn') : showToast('❌ ' + data.error, 'error');
+  } catch (e) { showToast('❌ ' + e.message, 'error'); }
+}
+
+// ── Log / Progress ──
+function appendLog(message, level) {
+  const log = document.getElementById('installLog');
+  const colors = { success:'#4caf50', error:'#f44336', warn:'#ff9800', info:'#555' };
+  const line = document.createElement('div');
+  line.style.color = colors[level] || colors.info;
+  line.textContent = message;
+  log.appendChild(line);
+  log.scrollTop = log.scrollHeight;
+}
+
+function updateProgress(percent, status) {
+  document.getElementById('progressBar').style.width = percent + '%';
+  document.getElementById('progressPercent').textContent = percent + '%';
+  document.getElementById('installStatus').textContent = status;
+}
+
+// ── Toast ──
+function showToast(message, type = 'info') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = message;
+  document.getElementById('toastContainer').appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => {
+    t.classList.remove('show');
+    setTimeout(() => t.remove(), 300);
+  }, 3500);
+}
+
+// ── Escape ──
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escapeAttr(s) {
+  if (s == null) return '';
+  return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+}
+</script>
+</body>
+</html>
