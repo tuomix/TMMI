@@ -79,18 +79,20 @@ REM ═════════════════════════�
 REM  DEPENDENCY CHECK  (run once at top)
 REM ════════════════════════════════════════════════════════════════
 echo   Checking dependencies...
-%PYTHON% -c "import flask, flask_socketio" >nul 2>nul
+%PYTHON% -c "import flask, flask_socketio, requests" >nul 2>nul
 if %errorlevel% neq 0 (
-    echo   [ INS ]  Installing Flask + SocketIO...
-    %PYTHON% -m pip install flask flask_socketio python-socketio python-engineio --quiet
+    echo   [ INS ]  Installing dependencies...
+    %PYTHON% -m pip install -r requirements.txt --quiet
     if %errorlevel% neq 0 (
         echo   [FAIL]  pip install failed. Run manually:
-        echo           pip install flask flask_socketio python-socketio python-engineio
+        echo           pip install -r requirements.txt
         pause & exit /b 1
     )
     echo   [  OK  ]  Dependencies installed
 ) else (
     echo   [  OK  ]  Dependencies already satisfied
+)
+o   [  OK  ]  Dependencies already satisfied
 )
 echo.
 
